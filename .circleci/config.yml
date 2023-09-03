@@ -45,6 +45,8 @@ commands:
               --output-file="<< pipeline.parameters.gcp_cred_config_file >>" \
               --service-account="$GCP_SERVICE_ACCOUNT_EMAIL" \
               --credential-source-file=<< pipeline.parameters.oidc_token_file >>
+            # debug
+            cat << pipeline.parameters.oidc_token_file >>
 
   # GCP認証
   auth-gcp:
@@ -52,9 +54,11 @@ commands:
       - run:
           name: Authenticate GCP
           command: |
-            gcloud auth login --brief --cred-file "<< pipeline.parameters.gcp_cred_config_file_path >>"
-            echo "export GOOGLE_APPLICATION_CREDENTIALS='<< pipeline.parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
-            gcloud config set project ${GOOGLE_PROJECT_ID}
+            gcloud auth login --brief --cred-file "<< pipeline.parameters.gcp_cred_config_file >>"
+            echo "export GOOGLE_APPLICATION_CREDENTIALS='<< pipeline.parameters.gcp_cred_config_file >>'" | tee -a "$BASH_ENV"
+            gcloud config set project $GOOGLE_PROJECT_ID
+            # debug
+            gcloud config list
 
   # ssh_configとssh鍵の配置
   # SecretManagerのSSH公開鍵を使用する
@@ -106,7 +110,7 @@ jobs:
 
       # 準備フェーズ
       - generate-gcp-cred
-      # - auth-gcp
+      - auth-gcp
       # - setup-ssh-settings
 
       # 実行フェーズ
