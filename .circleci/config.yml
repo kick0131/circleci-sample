@@ -137,12 +137,6 @@ workflows:
               # BASTION_USER
               # 引数のsshconfigの内容のファイル格納先。（/home/circleci/.ssh/config）
               # SSH_CONFIG_FILE
-      - execute-command:
-          context:
-            - common_execute_command_environment
-            - dev_execute_command_environment
-          requires:
-            - setup-job
   # 本番環境向け
   production:
     jobs:
@@ -151,9 +145,3 @@ workflows:
             - prd_environment
             - prd_oidc_environment
             - prd_ssh_environment
-      - execute-command:
-          context:
-            - common_execute_command_environment
-            - prd_execute_command_environment
-          requires:
-            - setup-job
