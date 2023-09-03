@@ -37,12 +37,10 @@ commands:
       - run:
           name: Generate GCP credentials file
           command: |
-            # debug
-            pwd
-            ls -la ~/
-            ls -la
             # CircleCIのOIDCトークンを一時ファイルに格納
-            echo $CIRCLE_OIDC_TOKEN > ~/<< pipeline.parameters.oidc_token_file >>
+            echo $CIRCLE_OIDC_TOKEN > << pipeline.parameters.oidc_token_file >>
+            # debug
+            ls -la
             # OIDCトークンの認証情報の設定ファイルを生成
             gcloud iam workload-identity-pools create-cred-config \
               "projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$GCP_WIP_ID/providers/$GCP_WIP_PROVIDER_ID"\
