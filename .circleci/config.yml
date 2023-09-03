@@ -1,0 +1,159 @@
+version: 2.1
+
+parameters:
+
+  # OIDC認証で作成する一時ファイルのパス
+  gcp_cred_config_file_path:
+    type: string
+    default: /home/circleci/gcp_cred_config.json
+  oidc_token_file_path:
+    type: string
+    default: /home/circleci/oidc_token.json
+
+  # SSH接続時の多段定義及びオプションを定義
+  sshd_config:
+    type: string
+    default: |
+      Host ${BASTION_CONFIG_HOST}
+        HostName ${BASTION_IP_ADDRESS}
+        User ${BASTION_USER}
+        IdentityFile ${BASTION_IDENTITY_FILE}
+        StrictHostKeyChecking no
+        UserKnownHostsFile /dev/null
+        port ${BASTION_PORT_NUM}
+
+executors:
+  gcp-executor:
+    docker:
+      - image: cimg/gcp:2023.05
+    resource_class: small
+orbs:
+  gcp-cli: circleci/gcp-cli@2.4.1
+  
+commands:
+
+  # GCP認証情報の生成(OpenID Connect)
+  generate-gcp-cred:
+    steps:
+      - run:
+          name: Generate GCP credentials file
+          command: |
+            # CircleCIのOIDCトークンを一時ファイルに格納
+            echo $CIRCLE_OIDC_TOKEN > << pipeline.parameters.oidc_token_file_path >>
+            # OIDCトークンの認証情報の設定ファイルを生成
+            gcloud iam workload-identity-pools create-cred-config \
+              "projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$GCP_WIP_ID/providers/$GCP_WIP_PROVIDER_ID"\
+              --output-file="<< pipeline.parameters.gcp_cred_config_file_path >>" \
+              --service-account="$GCP_SERVICE_ACCOUNT_EMAIL" \
+              --credential-source-file=<< pipeline.parameters.oidc_token_file_path >>
+
+  # GCP認証
+  auth-gcp:
+    steps:
+      - run:
+          name: Authenticate GCP
+          command: |
+            gcloud auth login --brief --cred-file "<< pipeline.parameters.gcp_cred_config_file_path >>"
+            echo "export GOOGLE_APPLICATION_CREDENTIALS='<< pipeline.parameters.gcp_cred_config_file_path >>'" | tee -a "$BASH_ENV"
+            gcloud config set project ${GOOGLE_PROJECT_ID}
+
+  # ssh_configとssh鍵の配置
+  # SecretManagerのSSH公開鍵を使用する
+  setup-ssh-settings:
+    steps:
+      - run:
+          name: Setup ssh_config from Context & ssh.key from Secret Manager
+          command: |
+            install -m 700 -d ~/.ssh
+            echo "<< pipeline.parameters.sshd_config >>" > ${SSH_CONFIG_FILE}
+            chmod 600 ${SSH_CONFIG_FILE}
+            gcloud secrets versions access latest --secret="${BASTION_SECRET_NAME}" > ${BASTION_IDENTITY_FILE}
+            chmod 0600 ${BASTION_IDENTITY_FILE}
+            ls -al ~/.ssh
+            cat ${SSH_CONFIG_FILE}
+
+  # GCE上でのコマンド実行
+  execute-command:
+    steps:
+      - run:
+          name: Execute command on GCE
+          command: |
+            echo 'connect to GCE'
+            # ssh ${BASTION_CONFIG_HOST} \
+              # ${TESTCOMMAND}
+
+
+jobs:
+
+  # 共通セットアップ
+  setup-job:
+    circleci_ip_ranges: true
+    # executorの指定
+    executor: gcp-executor
+    steps:
+      # GitHubのソースリポジトリをチェックアウト
+      # - checkout
+
+      # 準備フェーズ
+      # - generate-gcp-cred
+      # - auth-gcp
+      # - setup-ssh-settings
+
+      # 実行フェーズ
+      - execute-command
+
+workflows:
+  # 開発環境向け
+  develop:
+    jobs:
+      - setup-job:
+          context:
+            - dev_environment
+              # プロジェクトID
+              # GOOGLE_PROJECT_ID
+            - dev_oidc_environment
+              # プロジェクト番号
+              # GCP_PROJECT_NUMBER
+              # サービスアカウント
+              # GCP_SERVICE_ACCOUNT_EMAIL
+              # Workload Identity Pool ID
+              # GCP_WIP_ID
+              # Workload Identity Pool プロバイダID
+              # GCP_WIP_PROVIDER_ID
+            - dev_ssh_environment
+              # 接続先GCE情報
+              # -----------------------
+              # ホスト名
+              # BASTION_CONFIG_HOST
+              # SSH秘密鍵のパス（/home/circleci/.ssh/circleci.pem）
+              # BASTION_IDENTITY_FILE
+              # IPアドレス
+              # BASTION_IP_ADDRESS
+              # ポート番号
+              # BASTION_PORT_NUM
+              # SSH秘密鍵そのものの情報をSecretManagerで管理、そのSecret名
+              # BASTION_SECRET_NAME
+              # ログインユーザ
+              # BASTION_USER
+              # 引数のsshconfigの内容のファイル格納先。（/home/circleci/.ssh/config）
+              # SSH_CONFIG_FILE
+      - execute-command:
+          context:
+            - common_execute_command_environment
+            - dev_execute_command_environment
+          requires:
+            - setup-job
+  # 本番環境向け
+  production:
+    jobs:
+      - setup-job:
+          context:
+            - prd_environment
+            - prd_oidc_environment
+            - prd_ssh_environment
+      - execute-command:
+          context:
+            - common_execute_command_environment
+            - prd_execute_command_environment
+          requires:
+            - setup-job
