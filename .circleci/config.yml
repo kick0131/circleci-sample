@@ -37,6 +37,10 @@ commands:
       - run:
           name: Generate GCP credentials file
           command: |
+            # debug
+            pwd
+            ls -la ~/
+            ls -la
             # CircleCIのOIDCトークンを一時ファイルに格納
             echo $CIRCLE_OIDC_TOKEN > ~/<< pipeline.parameters.oidc_token_file >>
             # OIDCトークンの認証情報の設定ファイルを生成
@@ -57,7 +61,7 @@ commands:
           command: |
             gcloud auth login --brief --cred-file "<< pipeline.parameters.gcp_cred_config_file >>"
             echo "export GOOGLE_APPLICATION_CREDENTIALS='<< pipeline.parameters.gcp_cred_config_file >>'" | tee -a "$BASH_ENV"
-            gcloud config set project $GOOGLE_PROJECT_ID
+            # gcloud config set project $GOOGLE_PROJECT_ID
             # debug
             gcloud config list
 
