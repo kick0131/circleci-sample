@@ -3,12 +3,12 @@ version: 2.1
 parameters:
 
   # OIDC認証で作成する一時ファイルのパス
-  gcp_cred_config_file_path:
+  gcp_cred_config_file:
     type: string
-    default: /home/circleci/gcp_cred_config.json
-  oidc_token_file_path:
+    default: gcp_cred_config.json
+  oidc_token_file:
     type: string
-    default: /home/circleci/oidc_token.json
+    default: oidc_token.json
 
   # SSH接続時の多段定義及びオプションを定義
   sshd_config:
@@ -31,7 +31,6 @@ orbs:
   gcp-cli: circleci/gcp-cli@2.4.1
   
 commands:
-
   # GCP認証情報の生成(OpenID Connect)
   generate-gcp-cred:
     steps:
@@ -39,13 +38,13 @@ commands:
           name: Generate GCP credentials file
           command: |
             # CircleCIのOIDCトークンを一時ファイルに格納
-            echo $CIRCLE_OIDC_TOKEN > << pipeline.parameters.oidc_token_file_path >>
+            echo $CIRCLE_OIDC_TOKEN > ~/<< pipeline.parameters.oidc_token_file >>
             # OIDCトークンの認証情報の設定ファイルを生成
             gcloud iam workload-identity-pools create-cred-config \
               "projects/$GCP_PROJECT_NUMBER/locations/global/workloadIdentityPools/$GCP_WIP_ID/providers/$GCP_WIP_PROVIDER_ID"\
-              --output-file="<< pipeline.parameters.gcp_cred_config_file_path >>" \
+              --output-file="<< pipeline.parameters.gcp_cred_config_file >>" \
               --service-account="$GCP_SERVICE_ACCOUNT_EMAIL" \
-              --credential-source-file=<< pipeline.parameters.oidc_token_file_path >>
+              --credential-source-file=<< pipeline.parameters.oidc_token_file >>
 
   # GCP認証
   auth-gcp:
@@ -76,17 +75,11 @@ commands:
   execute-command:
     steps:
       - run:
-          name: Where is
+          name: bash info
           command: |
             id
             pwd
             ls -la
-      - run:
-          name: Execute command on GCE
-          command: |
-            echo 'connect to GCE'
-            # ssh ${BASTION_CONFIG_HOST} \
-              # ${TESTCOMMAND}
       - run:
           name: Environment pass
           command: |
@@ -95,12 +88,14 @@ commands:
           name: Environment pass test
           command: |
             echo "MY_PROJECTNAME : $MY_PROJECTNAME"
-
-
-
+      - run:
+          name: Execute command on GCE
+          command: |
+            echo 'connect to GCE'
+            # ssh ${BASTION_CONFIG_HOST} \
+              # ${TESTCOMMAND}
 
 jobs:
-
   # 共通セットアップ
   setup-job:
     # executorの指定
@@ -110,7 +105,7 @@ jobs:
       # - checkout
 
       # 準備フェーズ
-      # - generate-gcp-cred
+      - generate-gcp-cred
       # - auth-gcp
       # - setup-ssh-settings
 
