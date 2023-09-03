@@ -105,6 +105,10 @@ jobs:
 workflows:
   # 開発環境向け
   develop:
+    when:
+      or:
+        - equal: [ develop, << pipeline.git.branch >> ]
+        - equal: [ feature-gcpconnection, << pipeline.git.branch >> ]
     jobs:
       - setup-job:
           context:
@@ -139,6 +143,9 @@ workflows:
               # SSH_CONFIG_FILE
   # 本番環境向け
   production:
+    when:
+      or:
+        - equal: [ main, << pipeline.git.branch >> ]
     jobs:
       - setup-job:
           context:
