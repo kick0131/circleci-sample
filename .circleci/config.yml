@@ -87,7 +87,6 @@ jobs:
 
   # 共通セットアップ
   setup-job:
-    circleci_ip_ranges: true
     # executorの指定
     executor: gcp-executor
     steps:
