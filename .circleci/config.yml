@@ -76,11 +76,27 @@ commands:
   execute-command:
     steps:
       - run:
+          name: Where is
+          command: |
+            id
+            pwd
+            ls -la
+      - run:
           name: Execute command on GCE
           command: |
             echo 'connect to GCE'
             # ssh ${BASTION_CONFIG_HOST} \
               # ${TESTCOMMAND}
+      - run:
+          name: Environment pass
+          command: |
+            echo 'export MY_PROJECTNAME="$CIRCLE_PROJECT_USERNAME"' >> "$BASH_ENV"
+      - run:
+          name: Environment pass test
+          command: |
+            echo "MY_PROJECTNAME : $MY_PROJECTNAME"
+
+
 
 
 jobs:
